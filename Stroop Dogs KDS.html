@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stroop Dogs">
+<title>STROOP DOGS // KITCHEN</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0d1a1a;
+    --panel:    #112020;
+    --border:   #1a3333;
+    --teal:     #00e5cc;
+    --teal-dim: #007a6e;
+    --amber:    #ffb800;
+    --red:      #ff3333;
+    --yellow:   #f5d800;
+    --cream:    #fff8e7;
+    --muted:    #3a6060;
+    --green:    #00ff88;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; background: var(--bg); color: var(--cream);
+    font-family: 'Share Tech Mono', monospace;
+    overflow-x: hidden; overscroll-behavior: none;
+  }
+
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,204,0.02) 2px, rgba(0,229,204,0.02) 4px);
+  }
+
+  @keyframes blink    { 50% { opacity: 0.2; } }
+  @keyframes slideIn  { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes micpulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.5); } }
+
+  /* ── Header ── */
+  #header {
+    background: var(--panel); border-bottom: 2px solid var(--teal-dim);
+    padding: 0 16px; padding-top: env(safe-area-inset-top);
+    position: sticky; top: 0; z-index: 100;
+  }
+  #header-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0 6px; border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: 'Oswald',sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 4px; color: var(--teal); text-shadow: 0 0 12px var(--teal); line-height: 1; }
+  .logo-sub { font-size: 9px; color: var(--muted); letter-spacing: 3px; margin-top: 3px; }
+  #header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+  #clock { font-family: 'Oswald',sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--yellow); text-shadow: 0 0 8px rgba(245,216,0,0.5); }
+
+  #mic-bar { display: flex; align-items: center; gap: 5px; }
+  #mic-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.3s; }
+  #mic-dot.listening { background: var(--green); box-shadow: 0 0 8px var(--green); animation: micpulse 2s infinite; }
+  #mic-dot.heard     { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: none; }
+  #mic-dot.error     { background: var(--red); animation: none; }
+  #mic-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); transition: color 0.3s; }
+  #mic-label.listening { color: var(--green); }
+  #mic-label.heard     { color: var(--yellow); }
+  #mic-label.error     { color: var(--red); }
+
+  #header-stats { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  #header-stats b { color: var(--teal); }
+  .cooking { color: var(--yellow) !important; }
+  #voice-hint { font-size: 9px; color: var(--muted); }
+  #voice-hint .vn { color: var(--teal); }
+  #voice-hint .vd { color: var(--yellow); }
+
+  /* ── Board ── */
+  #board { padding: 14px; display: flex; flex-direction: column; gap: 14px; padding-bottom: max(90px, calc(env(safe-area-inset-bottom) + 80px)); }
+
+  /* ── Ticket ── */
+  .ticket { background: var(--panel); border: 1px solid var(--border); border-top: 4px solid var(--teal-dim); border-radius: 4px; overflow: hidden; animation: slideIn 0.3s ease; transition: border-color 0.3s, box-shadow 0.3s, opacity 0.3s; }
+  .ticket.new         { border-top-color: var(--teal);   box-shadow: 0 0 20px rgba(0,229,204,0.13); }
+  .ticket.in_progress { border-top-color: var(--yellow); box-shadow: 0 0 20px rgba(245,216,0,0.13); }
+  .ticket.active.new         { border-color: var(--teal);   box-shadow: 0 0 28px rgba(0,229,204,0.3); }
+  .ticket.active.in_progress { border-color: var(--yellow); box-shadow: 0 0 28px rgba(245,216,0,0.25); }
+  .ticket:not(.active) { opacity: 0.55; }
+
+  .voice-target { padding: 4px 14px; font-size: 9px; letter-spacing: 3px; text-align: center; border-bottom: 1px solid var(--border); }
+  .ticket.new         .voice-target { background: rgba(0,229,204,0.07); color: var(--teal); }
+  .ticket.in_progress .voice-target { background: rgba(245,216,0,0.07);  color: var(--yellow); }
+
+  .t-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px 10px; border-bottom: 1px solid var(--border); }
+  .ticket.new         .t-head { background: rgba(0,229,204,0.04); }
+  .ticket.in_progress .t-head { background: rgba(245,216,0,0.04); }
+
+  .t-name { font-family: 'Oswald',sans-serif; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; line-height: 1; }
+  .ticket.new         .t-name { color: var(--teal);   text-shadow: 0 0 8px rgba(0,229,204,0.4); }
+  .ticket.in_progress .t-name { color: var(--yellow); text-shadow: 0 0 8px rgba(245,216,0,0.4); }
+
+  .t-badge { font-size: 9px; letter-spacing: 3px; padding: 2px 6px; margin-top: 5px; display: inline-block; }
+  .ticket.new         .t-badge { color: var(--teal);   background: rgba(0,229,204,0.1); border: 1px solid var(--teal-dim); }
+  .ticket.in_progress .t-badge { color: var(--yellow); background: rgba(245,216,0,0.1);  border: 1px solid #7a6a00; }
+
+  .t-meta { text-align: right; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .t-timer { font-size: 13px; margin-top: 3px; font-weight: bold; color: var(--muted); }
+  .t-timer.warn { color: var(--red); animation: blink 1s infinite; }
+
+  .item-list { list-style: none; padding: 4px 0; }
+  .item-list li { padding: 10px 14px; border-bottom: 1px dashed var(--border); }
+  .item-list li:last-child { border-bottom: none; }
+  .item-row { display: flex; gap: 10px; align-items: flex-start; }
+
+  .item-qty { font-family: 'Oswald',sans-serif; font-size: 20px; font-weight: 700; min-width: 32px; height: 32px; border-radius: 3px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .ticket.new         .item-qty { color: var(--teal);   background: rgba(0,229,204,0.12); border: 1px solid var(--teal-dim); }
+  .ticket.in_progress .item-qty { color: var(--yellow); background: rgba(245,216,0,0.12);  border: 1px solid #7a6a00; }
+
+  .item-body { flex: 1; }
+  .item-name { font-size: 14px; font-weight: bold; color: var(--cream); letter-spacing: 0.3px; }
+
+  .toppings-block { margin-top: 6px; padding: 5px 8px; background: rgba(0,0,0,0.3); border: 1px solid #1a3333; border-left: 2px solid var(--teal-dim); }
+  .toppings-label { font-size: 8px; color: var(--teal-dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px; }
+  .topping-line   { font-size: 11px; color: var(--muted); line-height: 1.9; }
+
+  .item-mod  { font-size: 11px; color: var(--yellow); line-height: 1.9; margin-top: 3px; }
+  .item-note { display: inline-block; font-size: 11px; color: var(--red); margin-top: 5px; padding: 2px 7px; border: 1px solid rgba(255,51,51,0.35); background: rgba(255,51,51,0.05); }
+
+  .bump-btn { display: block; width: calc(100% - 28px); margin: 0 14px 14px; padding: 13px 10px; background: transparent; font-family: 'Share Tech Mono',monospace; font-size: 13px; letter-spacing: 4px; cursor: pointer; text-transform: uppercase; border-radius: 2px; -webkit-appearance: none; }
+  .ticket.new         .bump-btn { border: 1px solid var(--teal-dim); color: var(--teal); }
+  .ticket.in_progress .bump-btn { border: 1px solid #7a6a00;         color: var(--yellow); }
+
+  #empty { display: none; text-align: center; padding: 80px 20px; color: var(--muted); }
+  #empty .big { display: block; font-family: 'Oswald',sans-serif; font-size: 40px; letter-spacing: 8px; color: var(--border); margin-bottom: 12px; }
+
+  /* ── Bottom buttons ── */
+  #bottom-btns { position: fixed; bottom: max(18px, env(safe-area-inset-bottom)); right: 16px; z-index: 200; display: flex; gap: 8px; }
+  .bot-btn { font-family: 'Share Tech Mono',monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 13px; cursor: pointer; border-radius: 2px; text-transform: uppercase; }
+  #btn-target { background: var(--teal-dim); border: 1px solid var(--teal-dim); color: var(--teal);   display: none; }
+  #btn-menu   { background: #7a6a00;         border: 1px solid #7a6a00;         color: var(--yellow); }
+  #btn-config { background: var(--panel);    border: 1px solid var(--muted);    color: var(--muted);  }
+
+  /* ── Overlays ── */
+  .overlay { display: none; position: fixed; inset: 0; z-index: 300; background: var(--bg); overflow-y: auto; padding-top: env(safe-area-inset-top); }
+  .ov-header { position: sticky; top: 0; background: var(--panel); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+  .ov-title  { font-family: 'Oswald',sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 4px; color: var(--teal); }
+  .ov-body   { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+  .ov-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-bottom: 5px; }
+  .ov-input { width: 100%; padding: 9px 11px; font-family: 'Share Tech Mono',monospace; font-size: 13px; background: #0a1515; border: 1px solid var(--border); color: var(--cream); border-radius: 2px; outline: none; -webkit-appearance: none; }
+  .ov-input:focus { border-color: var(--teal-dim); }
+  .ov-note { font-size: 11px; color: var(--muted); line-height: 1.7; }
+
+  .menu-card { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--teal-dim); border-radius: 3px; }
+  .menu-card.open { border-left-color: var(--teal); }
+  .mc-header { display: flex; align-items: center; gap: 10px; padding: 13px 14px; cursor: pointer; }
+  .mc-name   { flex: 1; font-family: 'Oswald',sans-serif; font-size: 16px; font-weight: 700; color: var(--cream); letter-spacing: 1px; }
+  .mc-meta   { font-size: 10px; color: var(--muted); }
+  .mc-chev   { font-size: 11px; color: var(--teal); }
+  .mc-body   { padding: 0 14px 14px; border-top: 1px solid var(--border); }
+
+  .top-row { display: flex; gap: 8px; margin-bottom: 7px; align-items: center; }
+  .top-row input { flex: 1; }
+  .del-btn { width: 34px; height: 36px; flex-shrink: 0; background: transparent; border: 1px solid #5a1a1a; color: var(--red); font-size: 14px; cursor: pointer; border-radius: 2px; }
+
+  .add-card { background: var(--panel); border: 1px dashed var(--teal-dim); border-radius: 3px; padding: 14px; }
+  .add-row  { display: flex; gap: 8px; }
+
+  .act { font-family: 'Share Tech Mono',monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 13px; cursor: pointer; border-radius: 2px; text-transform: uppercase; }
+  .act.teal   { background: var(--teal-dim); border: 1px solid var(--teal-dim); color: var(--teal); }
+  .act.muted  { background: transparent;     border: 1px solid var(--muted);    color: var(--muted); }
+  .act.red    { background: transparent;     border: 1px solid #5a1a1a;         color: var(--red); }
+  .act.full   { width: 100%; display: block; padding: 10px; }
+  .act.small  { font-size: 10px; padding: 6px 10px; margin-top: 4px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="header-top">
+    <div>
+      <div class="logo">STROOP DOGS</div>
+      <div class="logo-sub">KITCHEN DISPLAY</div>
+    </div>
+    <div id="header-right">
+      <div id="clock">--:--:--</div>
+      <div id="mic-bar">
+        <div id="mic-dot"></div>
+        <div id="mic-label">OFF</div>
+      </div>
+    </div>
+  </div>
+  <div id="header-stats">
+    <div>ORDERS: <b id="cnt-total">0</b> &nbsp; NEW: <b id="cnt-new">0</b> &nbsp; COOKING: <b class="cooking" id="cnt-prog">0</b></div>
+    <div id="voice-hint">say <span class="vn">"next"</span> · <span class="vd">"done"</span></div>
+  </div>
+</div>
+
+<div id="board">
+  <div id="empty"><span class="big">ALL CLEAR</span>NO OPEN ORDERS</div>
+</div>
+
+<div id="bottom-btns">
+  <button class="bot-btn" id="btn-target" onclick="cycleTarget()">TARGET ↕</button>
+  <button class="bot-btn" id="btn-menu"   onclick="openOv('menu-ov')">✎ MENU</button>
+  <button class="bot-btn" id="btn-config" onclick="openOv('cfg-ov')">⚙ SETUP</button>
+</div>
+
+<!-- Config overlay -->
+<div class="overlay" id="cfg-ov">
+  <div class="ov-header">
+    <div class="ov-title">// SETUP</div>
+    <button class="act teal" onclick="saveConfig()">✓ SAVE</button>
+  </div>
+  <div class="ov-body">
+    <div><div class="ov-label">CLOUDFLARE WORKER URL</div><input class="ov-input" id="cfg-worker" type="url" placeholder="https://kds-proxy.yourname.workers.dev"></div>
+    <div><div class="ov-label">POLL INTERVAL (seconds)</div><input class="ov-input" id="cfg-interval" type="number" value="3" min="2" max="30"></div>
+    <div class="ov-note">Enter your Cloudflare Worker URL — orders appear automatically every few seconds.<br><br>No Worker yet? Follow README-IPAD.md to set one up free on Cloudflare.</div>
+    <button class="act muted full" onclick="closeOv('cfg-ov')">CANCEL</button>
+  </div>
+</div>
+
+<!-- Menu editor overlay -->
+<div class="overlay" id="menu-ov">
+  <div class="ov-header">
+    <div class="ov-title">// MENU</div>
+    <button class="act teal" onclick="saveMenu()">✓ SAVE</button>
+  </div>
+  <div class="ov-body" id="menu-body"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+const DEFAULT_MENU = {
+  "The Classic":   ["beef frank","steamed bun","yellow mustard","ketchup"],
+  "The Stroop":    ["beef frank","brioche bun","stroop sauce","crispy onions","pickle"],
+  "Chicago Style": ["beef frank","poppy seed bun","yellow mustard","relish","onion","tomato","pickle","celery salt","sport peppers"],
+  "Chili Dog":     ["beef frank","steamed bun","house chili","cheddar","diced onion"],
+  "Bacon Ranch":   ["beef frank","brioche bun","bacon","ranch drizzle","shredded lettuce","tomato"],
+  "The Naked":     ["beef frank","no bun","mustard on side"],
+};
+
+let MENU          = JSON.parse(localStorage.getItem("sd_menu") || "null") || DEFAULT_MENU;
+let WORKER_URL    = localStorage.getItem("kds_worker_url") || "";
+let POLL_INTERVAL = parseInt(localStorage.getItem("kds_interval") || "3");
+let orders        = {};
+let orderStatuses = {};
+let activeIdx     = 0;
+let pollTimer     = null;
+const NEXT_WORDS  = ["next","start","go","begin"];
+const DONE_WORDS  = ["done","ready","finish","finished","complete","clear"];
+
+// ── Clock ──────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-US",{hour12:true});
+}, 1000);
+document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-US",{hour12:true});
+
+// ── Timers ─────────────────────────────────────────────────
+function elapsedStr(iso) {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  const m = Math.floor(secs/60), s = secs%60;
+  return { label:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`, warn: m>=6 };
+}
+setInterval(() => {
+  document.querySelectorAll(".t-timer[data-created]").forEach(el => {
+    const {label,warn} = elapsedStr(el.dataset.created);
+    el.textContent = label;
+    el.className   = "t-timer" + (warn?" warn":"");
+  });
+}, 1000);
+
+// ── Overlays ───────────────────────────────────────────────
+function openOv(id) { if(id==="menu-ov") buildMenuEditor(); document.getElementById(id).style.display="block"; }
+function closeOv(id){ document.getElementById(id).style.display="none"; }
+
+// ── Config ─────────────────────────────────────────────────
+document.getElementById("cfg-worker").value   = WORKER_URL;
+document.getElementById("cfg-interval").value = POLL_INTERVAL;
+function saveConfig() {
+  WORKER_URL    = document.getElementById("cfg-worker").value.trim().replace(/\/$/,"");
+  POLL_INTERVAL = parseInt(document.getElementById("cfg-interval").value)||3;
+  localStorage.setItem("kds_worker_url", WORKER_URL);
+  localStorage.setItem("kds_interval",   POLL_INTERVAL);
+  closeOv("cfg-ov"); startPolling();
+}
+
+// ── Polling ────────────────────────────────────────────────
+function startPolling() {
+  if(pollTimer) clearInterval(pollTimer);
+  fetchOrders();
+  pollTimer = setInterval(fetchOrders, POLL_INTERVAL*1000);
+}
+async function fetchOrders() {
+  if(!WORKER_URL){ openOv("cfg-ov"); return; }
+  try {
+    const data = await (await fetch(`${WORKER_URL}/orders`)).json();
+    const inc  = {};
+    data.forEach(o => { inc[o.id]=o; if(!orderStatuses[o.id]) orderStatuses[o.id]="new"; });
+    Object.keys(orderStatuses).forEach(id => { if(!inc[id]) delete orderStatuses[id]; });
+    orders = inc;
+    render();
+  } catch(e) { setMic("error","NO SIGNAL"); }
+}
+
+// ── Bump / target ──────────────────────────────────────────
+function getVisible() { return Object.values(orders).filter(o=>orderStatuses[o.id]); }
+function clampIdx()   { const l=getVisible().length; activeIdx=l?Math.min(activeIdx,l-1):0; }
+function bump(id) {
+  const s=orderStatuses[id];
+  if(s==="new")         orderStatuses[id]="in_progress";
+  else if(s==="in_progress"){ delete orderStatuses[id]; delete orders[id]; }
+  clampIdx(); render();
+}
+function bumpActive() { const v=getVisible(); if(!v.length) return; bump(v[Math.min(activeIdx,v.length-1)].id); }
+function cycleTarget(){ const v=getVisible(); if(v.length<2) return; activeIdx=(activeIdx+1)%v.length; render(); }
+
+// ── Render ─────────────────────────────────────────────────
+function render() {
+  const board=document.getElementById("board"), empty=document.getElementById("empty");
+  const vis=getVisible(), ai=Math.min(activeIdx,Math.max(0,vis.length-1));
+  document.getElementById("cnt-total").textContent = vis.length;
+  document.getElementById("cnt-new").textContent   = vis.filter(o=>orderStatuses[o.id]==="new").length;
+  document.getElementById("cnt-prog").textContent  = vis.filter(o=>orderStatuses[o.id]==="in_progress").length;
+  document.getElementById("btn-target").style.display = vis.length>1?"block":"none";
+  empty.style.display = vis.length===0?"block":"none";
+  board.querySelectorAll(".ticket").forEach(el=>{ if(!orders[el.dataset.id]||!orderStatuses[el.dataset.id]) el.remove(); });
+  vis.forEach((order,i) => {
+    const status=orderStatuses[order.id], isActive=i===ai;
+    let el=board.querySelector(`.ticket[data-id="${order.id}"]`);
+    if(!el){ el=document.createElement("div"); el.dataset.id=order.id; board.insertBefore(el,empty); }
+    el.className=`ticket ${status}${isActive?" active":""}`;
+    el.innerHTML=ticketHTML(order,status,isActive);
+  });
+}
+
+function ticketHTML(order,status,isActive) {
+  const isNew=status==="new";
+  const {label:timer,warn}=elapsedStr(order.created_at);
+  const itemsHTML=order.line_items.map(item=>{
+    const tops=MENU[item.name]||[];
+    const topsHTML=tops.length?`<div class="toppings-block"><div class="toppings-label">Toppings</div>${tops.map(t=>`<div class="topping-line">${t}</div>`).join("")}</div>`:"";
+    const modsHTML=item.mods.map(m=>`<div class="item-mod">★ ${m}</div>`).join("");
+    const noteHTML=item.note?`<div class="item-note">⚠ ${item.note}</div>`:"";
+    return `<li><div class="item-row"><div class="item-qty">${item.qty}</div><div class="item-body"><div class="item-name">${item.name}</div>${topsHTML}${modsHTML}${noteHTML}</div></div></li>`;
+  }).join("");
+  return `
+    ${isActive?'<div class="voice-target">◀ VOICE TARGET ▶</div>':""}
+    <div class="t-head">
+      <div><div class="t-name">${order.customer_name}</div><div class="t-badge">${isNew?"NEW ORDER":"IN PROGRESS"}</div></div>
+      <div class="t-meta">#${order.short_id}<div class="t-timer${warn?" warn":""}" data-created="${order.created_at}">${timer}</div></div>
+    </div>
+    <ul class="item-list">${itemsHTML}</ul>
+    <button class="bump-btn" onclick="bump('${order.id}')">${isNew?"▶ START ORDER":"✓ ORDER READY"}</button>`;
+}
+
+// ── Menu editor ────────────────────────────────────────────
+let editMenu={}, expandedIdx=null;
+function buildMenuEditor(){ editMenu=JSON.parse(JSON.stringify(MENU)); expandedIdx=null; renderEditor(); }
+function renderEditor(){
+  const body=document.getElementById("menu-body");
+  const entries=Object.entries(editMenu);
+  body.innerHTML=entries.map(([name,tops],idx)=>`
+    <div class="menu-card${expandedIdx===idx?" open":""}" id="mc${idx}">
+      <div class="mc-header" onclick="toggleMC(${idx})">
+        <div class="mc-name">${name||'<span style="color:var(--muted)">Unnamed</span>'}</div>
+        <div class="mc-meta">${tops.length} toppings</div>
+        <div class="mc-chev">${expandedIdx===idx?"▲":"▼"}</div>
+      </div>
+      ${expandedIdx===idx?`<div class="mc-body">
+        <div class="ov-label" style="margin-top:12px">ITEM NAME</div>
+        <input class="ov-input" style="margin-bottom:12px" value="${name}" oninput="renameItem(${idx},this.value)" placeholder="e.g. The Classic">
+        <div class="ov-label">TOPPINGS</div>
+        ${tops.map((t,ti)=>`<div class="top-row"><input class="ov-input" value="${t}" oninput="editTop(${idx},${ti},this.value)" placeholder="e.g. yellow mustard"><button class="del-btn" onclick="removeTop(${idx},${ti})">✕</button></div>`).join("")}
+        <button class="act teal small" onclick="addTop(${idx})">+ ADD TOPPING</button>
+        <div style="border-top:1px dashed var(--border);padding-top:12px">
+          <button class="act red" onclick="deleteItem(${idx})">✕ DELETE ITEM</button>
+        </div>
+      </div>`:""}
+    </div>`).join("")+`
+  <div class="add-card">
+    <div class="ov-label">ADD NEW MENU ITEM</div>
+    <div class="add-row">
+      <input class="ov-input" id="new-name" placeholder="e.g. The Carolina" onkeydown="if(event.key==='Enter')addItem()">
+      <button class="act teal" onclick="addItem()">+ ADD</button>
+    </div>
+  </div>
+  <button class="act muted full" onclick="closeOv('menu-ov')">CANCEL</button>`;
+}
+function toggleMC(idx){ expandedIdx=expandedIdx===idx?null:idx; renderEditor(); }
+function renameItem(idx,val){
+  const entries=Object.entries(editMenu); const [,tops]=entries[idx];
+  const newMenu={}; entries.forEach(([k,v],i)=>{ newMenu[i===idx?val:k]=v; }); editMenu=newMenu;
+}
+function editTop(itemIdx,topIdx,val){ const name=Object.keys(editMenu)[itemIdx]; editMenu[name][topIdx]=val; }
+function addTop(itemIdx){ const name=Object.keys(editMenu)[itemIdx]; editMenu[name].push(""); expandedIdx=itemIdx; renderEditor(); }
+function removeTop(itemIdx,topIdx){ const name=Object.keys(editMenu)[itemIdx]; editMenu[name].splice(topIdx,1); expandedIdx=itemIdx; renderEditor(); }
+function deleteItem(idx){ const name=Object.keys(editMenu)[idx]; delete editMenu[name]; expandedIdx=null; renderEditor(); }
+function addItem(){
+  const input=document.getElementById("new-name"), name=input.value.trim();
+  if(!name) return; editMenu[name]=[]; expandedIdx=Object.keys(editMenu).length-1; renderEditor();
+}
+function saveMenu(){
+  const cleaned={};
+  Object.entries(editMenu).forEach(([n,tops])=>{ const k=n.trim(); if(k) cleaned[k]=tops.filter(t=>t.trim()); });
+  MENU=cleaned; localStorage.setItem("sd_menu",JSON.stringify(MENU));
+  closeOv("menu-ov"); render();
+}
+
+// ── Voice ──────────────────────────────────────────────────
+function setMic(state,label){
+  document.getElementById("mic-dot").className=state;
+  const lbl=document.getElementById("mic-label"); lbl.className=state; lbl.textContent=label;
+}
+(function initVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ setMic("error","NO MIC"); return; }
+  const r=new SR(); r.continuous=true; r.interimResults=false; r.lang="en-US";
+  r.onstart =()=>setMic("listening","LISTENING");
+  r.onerror =(e)=>{ if(e.error==="no-speech") return; setMic("error","MIC OFF"); setTimeout(()=>{ try{r.start();}catch(_){} },1500); };
+  r.onend   =()=>{ setMic("listening","LISTENING"); try{r.start();}catch(_){} };
+  r.onresult=(e)=>{
+    const words=e.results[e.results.length-1][0].transcript.trim().toLowerCase().split(/\s+/);
+    const next=words.some(w=>NEXT_WORDS.includes(w)), done=words.some(w=>DONE_WORDS.includes(w));
+    if(next||done){ setMic("heard",done?"DONE ✓":"NEXT ▶"); bumpActive(); setTimeout(()=>setMic("listening","LISTENING"),900); }
+  };
+  try{r.start();}catch(_){}
+})();
+
+// ── Boot ───────────────────────────────────────────────────
+if(!WORKER_URL) openOv("cfg-ov"); else startPolling();
+</script>
+</body>
+</html>
